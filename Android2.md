@@ -178,7 +178,67 @@ ANR（Application Not Responding）是 Android 应用无响应的异常。发生
 - 将耗时任务放入子线程：避免在主线程中执行任务，使用 HandlerThread、AsyncTask 或 ExecutorService 等工具。
 - 设置超时时间：对于网络请求、文件 IO 等任务设置合理的超时，避免无期限等待。
 - 使用 IntentService：如果任务是一次性的，使用 IntentService 处理，该服务在任务完成后会自动销毁。
+## Paging 
+- Paging 是 Android Jetpack 提供的库，专注于分页加载数据，尤其适合大数据集的逐步加载。
+- 优点：
+    - 减少内存占用：按需加载数据，避免一次性加载过多数据导致内存不足。
+    - 提高性能：支持惰性加载，避免页面滚动卡顿，提升用户体验。
+    - 简化数据源操作：与数据库、网络数据源结合，简化分页实现。
+### Paging 的主要组件有哪些？
+- PagingSource：用于定义数据源，决定从哪里、如何加载数据。
+- PagingData：数据流容器，包含从 PagingSource 加载的数据。
+- Pager：创建 PagingData 流的入口，将 PagingSource 转化为 Flow 或 LiveData。
+- PagingDataAdapter：继承自 RecyclerView.Adapter，用于在 RecyclerView 中显示 PagingData 数据。
+### 如何使用 Paging 3.0 实现分页加载？
+- 创建一个 PagingSource，定义如何加载数据。
+- 使用 Pager 对象创建 PagingData 流。
+- 使用 PagingDataAdapter 显示数据。
+- 将 PagingData 绑定到 RecyclerView。
+```
+val pager = Pager(PagingConfig(pageSize = 20)) {
+    MyPagingSource()
+}
 
+val pagingData = pager.flow.cachedIn(viewModelScope)
+```
+### PagingDataAdapter 是什么？如何使用它？
+- PagingDataAdapter 是 RecyclerView.Adapter 的子类，用于显示分页数据。
+- 通过 submitData() 方法传递 PagingData，自动支持分页更新和差异更新。
+```
+val adapter = MyPagingDataAdapter()
+recyclerView.adapter = adapter
+
+lifecycleScope.launch {
+    viewModel.pagingData.collectLatest { pagingData ->
+        adapter.submitData(pagingData)
+    }
+}
+```
+### Paging 的分页策略有哪些？
+- PageSize：每页加载的数据量。
+- PrefetchDistance：提前加载的距离，距离底部多少项时开始加载下一页。
+- InitialLoadSize：初次加载的数据量。
+- EnablePlaceholders：是否启用占位符，可以节省资源，但有时可能会影响滚动体验。
+```
+PagingConfig(
+    pageSize = 20,
+    prefetchDistance = 5,
+    initialLoadSize = 40,
+    enablePlaceholders = false
+)
+```
+### Paging 如何处理加载状态？
+- 通过 LoadState 管理加载状态，包括 LoadState.Loading、LoadState.Error 和 LoadState.NotLoading。
+- LoadStateListener 可以在 PagingDataAdapter 中监听状态，显示加载或错误提示。
+```
+adapter.addLoadStateListener { loadState ->
+    when (loadState.refresh) {
+        is LoadState.Loading -> // 显示加载
+        is LoadState.Error -> // 显示错误
+        is LoadState.NotLoading -> // 隐藏加载
+    }
+}
+```
 
 
 
