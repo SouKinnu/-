@@ -145,4 +145,63 @@ Kotlin 使用 object 关键字来创建单例类，无需手动编写单例模�
 | 对象创建   | 在运行时不会创建对象               | 每次创建新实例都会分配对象                     |
 | 继承       | 不支持继承                        | 支持实现接口，但不支持类继承                   |
 | 使用场景   | 用于包装简单值，提高性能           | 用于封装多个值，并自动生成 `copy()` 方法等      |
+# inline、noinline 和 crossinline 
+## inline 关键字
+inline 关键字用于标记函数，使得该函数在编译时内联。内联函数会在编译时将函数体替换为其内容，从而避免了调用函数时的额外开销（例如：栈帧分配和函数调用的跳转）。内联通常用于高阶函数（即将函数作为参数传递）。
+### 使用场景
+- 用于高阶函数，尤其是 lambda 表达式，减少性能开销。
+- 经常用于函数类型的参数，可以将 lambda 表达式传递给内联函数并在编译时内联。
+```
+inline fun <T> runInline(block: () -> T): T {
+    return block()  // 这里的 block 会在调用时直接内联进去
+}
 
+fun main() {
+    val result = runInline { "Hello, World!" }
+    println(result)  // 输出: Hello, World!
+}
+```
+注意： 内联函数的参数（例如 lambda）会被直接替换到调用位置，这样就避免了函数调用的开销。
+## noinline 关键字
+noinline 用于修饰内联函数的参数，表示该参数不能被内联。如果一个高阶函数有多个参数，其中某些参数是 lambda 表达式，但不希望对某些参数进行内联优化，可以使用 noinline。
+### 使用场景
+- 当函数是内联的，但某些参数不希望内联时，使用 noinline。
+- 如果某个 lambda 表达式的函数体比较复杂，内联可能会使代码变得过于庞大，此时可以避免对它进行内联。
+```
+inline fun testFunction(noinline block: () -> Unit) {
+    // 不能在这里内联 `block`
+    println("Before")
+    block()  // 正常调用，没有内联
+    println("After")
+}
+
+fun main() {
+    testFunction {
+        println("Hello")
+    }
+}
+```
+在这个例子中，block 被标记为 noinline，这意味着 block 不会被内联。
+### crossinline 关键字
+crossinline 用于禁止 lambda 表达式中的控制流跳转（例如：return、break 或 continue）跳出当前函数的范围。crossinline 通常与内联函数一起使用，限制 lambda 表达式中不能直接使用 return。
+### 使用场景
+- 当内联函数的 lambda 表达式被传递到另一个线程或异步任务时，需要防止 lambda 中的 return 跳出外部函数。
+- 在内联函数的某些情况下，lambda 表达式中的 return 会影响到外部函数的执行，但有时你可能希望禁止这种情况发生。
+```
+inline fun testCrossinline(crossinline block: () -> Unit) {
+    println("Before")
+    // 使用 lambda 中的 block 时，不能直接 `return` 出去
+    run {
+        block()  // 这里的 block 不能包含 return，否则会编译错误
+    }
+    println("After")
+}
+
+fun main() {
+    testCrossinline {
+        println("Hello")
+        // return  // 这行代码会报错，不能直接返回外部函数
+    }
+}
+```
+在这个例子中，crossinline 确保了 block 中不能有 return，即不允许在 lambda 表达式内部跳出 testCrossinline 函数的执行。
